@@ -33,7 +33,7 @@ export default defineComponent( {
 					{ type: 'text', text: 'Hello world!' }
 				] },
 				{ type: 'component', component: CdxButton, componentName: 'CdxButton', importFrom: '@wikimedia/codex', props: { action: { type: 'literal', value: 'progressive' } }, events: {}, defaultSlot: [
-					{ type: 'text', text: 'Click meeeee!!!!!' }
+					{ type: 'text', text: 'Click me!' }
 				] },
 				{ type: 'component', component: CdxProgressBar, componentName: 'CdxProgressBar', importFrom: '@wikimedia/codex', props: {}, events: {}, defaultSlot: [] }
 			]
