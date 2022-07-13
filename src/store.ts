@@ -133,14 +133,16 @@ function resolveIndexes( parent: TemplateNodeWithChildren, indexes: number[] ): 
 	return parent.children[ indexes[ 0 ] ];
 }
 
-/*function resolveSpliceIndexes( parent: TemplateNodeWithChildren, indexes: number[] ):
+/*
+function resolveSpliceIndexes( parent: TemplateNodeWithChildren, indexes: number[] ):
 [ TemplateNodeWithChildren, number ] {
 	const pathToParentNode = [ ...indexes ];
 	const indexInParentNode = pathToParentNode.pop();
 	const parentNode = resolveIndexes( parent, pathToParentNode ) as
 		TemplateNodeWithChildren|null;
 	return [ parentNode, indexInParentNode ];
-}*/
+}
+*/
 
 export const useStore = defineStore( {
 	id: 'app',
