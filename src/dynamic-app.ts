@@ -1,124 +1,66 @@
-import { DefineComponent, h, VNodeArrayChildren, VNodeChild } from 'vue';
+import { h, VNodeArrayChildren, VNodeChild } from 'vue';
 import escapeHtml from 'escape-html';
 
-export interface LiteralProp {
-	type: 'literal',
-	value: string|number|boolean
-}
+import { DynamicApp, TemplateNode, ComponentPropWithValue, getComponentDefinition, TemplateNodeWithChildren } from './store';
 
-export interface VariableProp {
-	type: 'variable',
-	variable: string
-}
-
-export type Prop = LiteralProp | VariableProp;
-
-/* eslint-disable no-use-before-define */
-export type TemplateNode =
-	ComponentTemplateNode |
-	HtmlTemplateNode |
-	TextTemplateNode |
-	InterpolationTemplateNode;
-/* eslint-enable no-use-before-define */
-
-export interface ComponentTemplateNode {
-	type: 'component',
-	// eslint-disable-next-line @typescript-eslint/no-explicit-any
-	component: DefineComponent<any, any, any, any, any, any, any, any>,
-	componentName: string,
-	importFrom: string,
-	props: Record<string, Prop>,
-	events: Record<string, string>,
-	defaultSlot: TemplateNode[] // TODO other slots?
-}
-
-export interface HtmlTemplateNode {
-	type: 'html',
-	tag: string,
-	attrs: Record<string, Prop>,
-	children: TemplateNode[]
-}
-
-export interface TextTemplateNode {
-	type: 'text',
-	text: string
-}
-
-export interface InterpolationTemplateNode {
-	type: 'interpolation',
-	variable: string
-}
-
-export interface DynamicApp {
-	template: TemplateNode[],
-	// TODO variables, data, computed, etc
-}
-
+// TODO convert to non-array style
 export function renderTemplate( template: TemplateNode[] ): VNodeArrayChildren {
-	function renderProps( props: Record<string, Prop> ): Record<string, unknown> {
+	function renderProps( props: Record<string, ComponentPropWithValue> ): Record<string, unknown> {
 		const rendered: Record<string, unknown> = {};
 		for ( const [ propName, prop ] of Object.entries( props ) ) {
-			if ( prop.type === 'literal' ) {
-				rendered[ propName ] = prop.value;
-			} else if ( prop.type === 'variable' ) {
-				rendered[ propName ] = `TODO implement variable ${prop.variable}`;
-			}
+			rendered[ propName ] = prop.value;
 		}
 		return rendered;
 	}
 
-	function renderEvents( events: Record<string, string> ) {
-		// TODO implement
-		return events;
-	}
-
 	return template.map( ( node ): VNodeChild => {
 		if ( node.type === 'component' ) {
+			const componentDef = getComponentDefinition( node.component );
+			if ( !componentDef ) {
+				return '';
+			}
 			return h(
-				node.component,
+				componentDef.component,
 				{
-					...renderProps( node.props ),
-					...renderEvents( node.events )
+					...renderProps( node.props )
+					// TODO events
 				},
-				() => renderTemplate( node.defaultSlot )
+				() => renderTemplate( node.children )
 			);
 		} else if ( node.type === 'html' ) {
 			return h(
 				node.tag,
-				renderProps( node.attrs ),
+				node.attrs,
 				renderTemplate( node.children )
 			);
 		} else if ( node.type === 'text' ) {
 			return node.text;
-		} else if ( node.type === 'interpolation' ) {
-			return `TODO implement interpolation ${node.variable}`;
 		}
 		return '';
 	} );
 }
 
+// TODO convert to non-array style
 export function makeTemplateSource( template: TemplateNode[], indent = 1 ): string {
-	function stringifyProps( props: Record<string, Prop> ): string {
+	function stringifyPropsOrAttrs( props: Record<string, ComponentPropWithValue|string> ): string {
 		return Object.entries( props ).map( ( [ propName, prop ] ) => {
-			if ( prop.type === 'variable' ) {
-				return `:${propName}="${escapeHtml( prop.variable )}"`;
+			const propValue = typeof prop === 'string' ? prop : prop.value;
+			if ( typeof propValue === 'boolean' ) {
+				return propValue ? propName : '';
 			}
-			if ( typeof prop.value === 'boolean' ) {
-				return prop.value ? propName : '';
+			if ( typeof propValue === 'string' ) {
+				return `${propName}="${escapeHtml( propValue )}"`;
 			}
-			if ( typeof prop.value === 'string' ) {
-				return `${propName}="${escapeHtml( prop.value )}"`;
-			}
-			return `:${propName}="${escapeHtml( JSON.stringify( prop.value ) )}"`;
+			return `:${propName}="${escapeHtml( JSON.stringify( propValue ) )}"`;
 		} ).filter( Boolean ).join( ' ' );
 	}
 
 	return template.map( ( node ) => {
 		const tabs = Array( indent + 1 ).join( '\t' );
 		if ( node.type === 'component' || node.type === 'html' ) {
-			const tagName = node.type === 'component' ? node.componentName : node.tag;
-			const attrs = stringifyProps( node.type === 'component' ? node.props : node.attrs );
-			const content = makeTemplateSource( node.type === 'component' ? node.defaultSlot : node.children, indent + 1 );
+			const tagName = node.type === 'component' ? node.component : node.tag;
+			const attrs = stringifyPropsOrAttrs( node.type === 'component' ? node.props : node.attrs );
+			const content = makeTemplateSource( node.children, indent + 1 );
 			return `${tabs}<${tagName}${attrs ? ' ' + attrs : ''}` + (
 				content ?
 					`>\n${content}\n${tabs}</${tagName}>` :
@@ -126,8 +68,6 @@ export function makeTemplateSource( template: TemplateNode[], indent = 1 ): stri
 			);
 		} else if ( node.type === 'text' ) {
 			return `${tabs}${node.text}`;
-		} else if ( node.type === 'interpolation' ) {
-			return `${tabs}{{ ${node.variable} }}`;
 		}
 		return '';
 	} ).join( '\n' );
@@ -139,19 +79,22 @@ export function makeScriptSource( app: DynamicApp, indent = 1 ): string {
 	// Gather all components used and group them by import source
 	const foundComponents = new Set<string>();
 	const imports = new Map<string, Set<string>>();
-	function gatherComponents( template: TemplateNode[] ) {
-		for ( const node of template ) {
+	function gatherComponents( parentNode: TemplateNodeWithChildren ) {
+		for ( const node of parentNode.children ) {
 			if ( node.type === 'component' ) {
-				if ( !foundComponents.has( node.componentName ) ) {
-					foundComponents.add( node.componentName );
-					if ( !imports.has( node.importFrom ) ) {
-						imports.set( node.importFrom, new Set<string>() );
+				if ( !foundComponents.has( node.component ) ) {
+					foundComponents.add( node.component );
+					const componentDef = getComponentDefinition( node.component );
+					if ( componentDef ) {
+						if ( !imports.has( componentDef.importFrom ) ) {
+							imports.set( componentDef.importFrom, new Set<string>() );
+						}
+						imports.get( componentDef.importFrom ).add( node.component );
 					}
-					imports.get( node.importFrom ).add( node.componentName );
 				}
-				gatherComponents( node.defaultSlot );
-			} else if ( node.type === 'html' ) {
-				gatherComponents( node.children );
+			}
+			if ( 'children' in node ) {
+				gatherComponents( node );
 			}
 		}
 	}

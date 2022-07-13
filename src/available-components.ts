@@ -1,30 +1,18 @@
 import { DefineComponent } from 'vue';
-import { TemplateNode } from './dynamic-app';
+import type { ComponentProp, NonRootTemplateNode } from './store';
 
-// TODO for icons we'll need something more advanced
-// TODO menus with items
-// TODO form elements that require v-model bindings
-export interface ComponentProp {
-	// TODO more types, make default match type. Look at codex-docs structure for this
-	type: 'text' | 'boolean' | string[],
-	default: string|number|boolean,
-	description?: string
-}
-
-export interface Component {
+export interface ComponentDefinition {
 	// eslint-disable-next-line @typescript-eslint/no-explicit-any
 	component: DefineComponent<any, any, any, any, any, any, any, any>,
 	componentName: string,
 	importFrom: string,
 	props: Record<string, ComponentProp>,
-	hasDefaultSlot?: boolean,
-	defaultDefaultSlotContent?: TemplateNode[],
-	description?: string
+	defaultContent?: NonRootTemplateNode[]
 }
 
 import { CdxButton, CdxCheckbox, CdxMessage, CdxProgressBar, CdxRadio, CdxTab, CdxTabs, CdxTextInput } from '@wikimedia/codex';
 
-const availableComponents: Component[] = [
+const availableComponents: ComponentDefinition[] = [
 	{
 		component: CdxButton,
 		componentName: 'CdxButton',
@@ -43,8 +31,7 @@ const availableComponents: Component[] = [
 				default: false
 			}
 		},
-		hasDefaultSlot: true,
-		defaultDefaultSlotContent: [
+		defaultContent: [
 			{ type: 'text', text: 'Click me' }
 		]
 	},
@@ -89,8 +76,7 @@ const availableComponents: Component[] = [
 				default: 'Close'
 			}
 		},
-		hasDefaultSlot: true,
-		defaultDefaultSlotContent: [
+		defaultContent: [
 			{ type: 'text', text: 'Message text' }
 		]
 	},
@@ -151,8 +137,7 @@ const availableComponents: Component[] = [
 				default: 'Tab label'
 			}
 		},
-		hasDefaultSlot: true,
-		defaultDefaultSlotContent: [
+		defaultContent: [
 			{ type: 'text', text: 'Tab content' }
 		]
 	},
@@ -167,15 +152,14 @@ const availableComponents: Component[] = [
 				default: false
 			}
 		},
-		hasDefaultSlot: true,
-		defaultDefaultSlotContent: [
-			{ type: 'component', component: CdxTab, componentName: 'CdxTab', importFrom: '@wikimedia/codex', props: { name: { type: 'literal', value: 'tab1' }, label: { type: 'literal', value: 'First tab' } }, events: {}, defaultSlot: [
+		defaultContent: [
+			{ type: 'component', component: 'CdxTab', props: { name: { type: 'text', value: 'tab1' }, label: { type: 'text', value: 'First tab' } }, children: [
 				{ type: 'text', text: 'Content of first tab' }
 			] },
-			{ type: 'component', component: CdxTab, componentName: 'CdxTab', importFrom: '@wikimedia/codex', props: { name: { type: 'literal', value: 'tab2' }, label: { type: 'literal', value: 'Second tab' } }, events: {}, defaultSlot: [
+			{ type: 'component', component: 'CdxTab', props: { name: { type: 'text', value: 'tab2' }, label: { type: 'text', value: 'Second tab' } }, children: [
 				{ type: 'text', text: 'Content of second tab' }
 			] },
-			{ type: 'component', component: CdxTab, componentName: 'CdxTab', importFrom: '@wikimedia/codex', props: { name: { type: 'literal', value: 'tab3' }, label: { type: 'literal', value: 'Third tab' } }, events: {}, defaultSlot: [
+			{ type: 'component', component: 'CdxTab', props: { name: { type: 'text', value: 'tab3' }, label: { type: 'text', value: 'Third tab' } }, children: [
 				{ type: 'text', text: 'Content of third tab' }
 			] }
 		]

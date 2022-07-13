@@ -1,17 +1,13 @@
 <script lang="ts">
-import { defineComponent, h, PropType } from 'vue';
-import { DynamicApp, renderTemplate } from './dynamic-app';
+import { defineComponent, h } from 'vue';
+import { renderTemplate } from './dynamic-app';
+import { useStore } from './store';
 
 export default defineComponent( {
-	props: {
-		app: {
-			type: Object as PropType<DynamicApp>,
-			required: true
-		}
-	},
-	setup( props ) {
+	setup() {
+		const store = useStore();
 		// TODO set up variable state in a way that is somehow reactive to the stuff in app
-		return () => h( 'div', { class: 'cdx-playground-render' }, renderTemplate( props.app.template ) );
+		return () => h( 'div', { class: 'cdx-playground-render' }, renderTemplate( store.template.children ) );
 	}
 } );
 </script>
