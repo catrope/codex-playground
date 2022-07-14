@@ -19,7 +19,7 @@
 </template>
 
 <script lang="ts">
-import { defineComponent } from 'vue';
+import { defineComponent, computed, onMounted } from 'vue';
 import AddNodeTool from './AddNodeTool.vue';
 import RenderDynamicApp from './RenderDynamicApp.vue';
 import SourceCode from './SourceCode.vue';
@@ -37,7 +37,13 @@ export default defineComponent( {
 	},
 	setup() {
 		const store = useStore();
-		const rootNode = store.template;
+		const rootNode = computed( () => store.template );
+
+		onMounted( () => {
+			store.updateStoreFromHash();
+			store.$subscribe( () => store.updateHashFromStore() );
+		} );
+
 		return {
 			rootNode
 		};

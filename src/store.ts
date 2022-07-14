@@ -156,6 +156,16 @@ export const useStore = defineStore( {
 		moveNode( index: number, direction: 'up' | 'down' ) {
 			const [ node ] = this.template.children.splice( index, 1 );
 			this.template.children.splice( direction === 'up' ? index - 1 : index + 1, 0, node );
+		},
+		updateHashFromStore() {
+			location.hash = btoa( encodeURIComponent( JSON.stringify( this.$state ) ) );
+		},
+		updateStoreFromHash() {
+			try {
+				const data = JSON.parse( decodeURIComponent( atob( location.hash.slice( 1 ) ) ) ) as DynamicApp;
+				this.$patch( data );
+			} catch ( _ignored ) {
+			}
 		}
 	}
 } );
