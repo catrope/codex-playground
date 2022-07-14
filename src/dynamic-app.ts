@@ -25,26 +25,44 @@ export function renderTemplate( template: TemplateNode[] ): VNodeArrayChildren {
 					...renderProps( node.props )
 					// TODO events
 				},
-				() => renderTemplate( node.children )
+				() => node.text
 			);
 		} else if ( node.type === 'html' ) {
 			return h(
 				node.tag,
 				node.attrs,
-				renderTemplate( node.children )
+				node.text
 			);
-		} else if ( node.type === 'text' ) {
-			return node.text;
 		}
 		return '';
 	} );
 }
 
+function getDefaultPropValues( componentName: string ): Record<string, string> {
+	const def = getComponentDefinition( componentName );
+	if ( !def ) {
+		return {};
+	}
+	const defaults = {};
+	for ( const propName in def.props ) {
+		if ( 'default' in def.props[ propName ] ) {
+			defaults[ propName ] = def.props[ propName ].default;
+		}
+	}
+	return defaults;
+}
+
 // TODO convert to non-array style
 export function makeTemplateSource( template: TemplateNode[], indent = 1 ): string {
-	function stringifyPropsOrAttrs( props: Record<string, ComponentPropWithValue|string> ): string {
+	function stringifyPropsOrAttrs(
+		props: Record<string, ComponentPropWithValue|string>,
+		defaults: Record<string, string> = {}
+	): string {
 		return Object.entries( props ).map( ( [ propName, prop ] ) => {
 			const propValue = typeof prop === 'string' ? prop : prop.value;
+			if ( propValue === defaults[ propName ] ) {
+				return '';
+			}
 			if ( typeof propValue === 'boolean' ) {
 				return propValue ? propName : '';
 			}
@@ -59,15 +77,16 @@ export function makeTemplateSource( template: TemplateNode[], indent = 1 ): stri
 		const tabs = Array( indent + 1 ).join( '\t' );
 		if ( node.type === 'component' || node.type === 'html' ) {
 			const tagName = node.type === 'component' ? node.component : node.tag;
-			const attrs = stringifyPropsOrAttrs( node.type === 'component' ? node.props : node.attrs );
-			const content = makeTemplateSource( node.children, indent + 1 );
+			const attrs = stringifyPropsOrAttrs(
+				node.type === 'component' ? node.props : node.attrs,
+				node.type === 'component' ? getDefaultPropValues( node.component ) : {}
+			);
+			// const content = makeTemplateSource( node.children, indent + 1 );
 			return `${tabs}<${tagName}${attrs ? ' ' + attrs : ''}` + (
-				content ?
-					`>\n${content}\n${tabs}</${tagName}>` :
+				node.text ?
+					`>\n${tabs}\t${node.text}\n${tabs}</${tagName}>` :
 					' />'
 			);
-		} else if ( node.type === 'text' ) {
-			return `${tabs}${node.text}`;
 		}
 		return '';
 	} ).join( '\n' );

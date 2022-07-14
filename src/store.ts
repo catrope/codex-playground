@@ -37,31 +37,23 @@ export interface ComponentTemplateNode {
 	type: 'component',
 	component: string,
 	props: Record<string, ComponentPropWithValue>,
-	// eslint-disable-next-line no-use-before-define
-	children: NonRootTemplateNode[]
+	text: string
 }
 
 export interface HtmlTemplateNode {
 	type: 'html',
 	tag: string,
 	attrs: Record<string, string>,
-	// eslint-disable-next-line no-use-before-define
-	children: NonRootTemplateNode[]
-}
-
-export interface TextTemplateNode {
-	type: 'text',
 	text: string
 }
 
 export type NonRootTemplateNode =
 	ComponentTemplateNode |
-	HtmlTemplateNode |
-	TextTemplateNode;
+	HtmlTemplateNode;
 
 export type TemplateNode = RootTemplateNode | NonRootTemplateNode;
 
-export type TemplateNodeWithChildren = RootTemplateNode | ComponentTemplateNode | HtmlTemplateNode;
+export type TemplateNodeWithChildren = RootTemplateNode;
 
 export interface DynamicApp {
 	template: RootTemplateNode
@@ -97,7 +89,7 @@ export function makeComponentNode( componentName: string ): ComponentTemplateNod
 		type: 'component',
 		component: componentName,
 		props,
-		children: componentDefinition.defaultContent || []
+		text: componentDefinition.defaultText || ''
 	};
 }
 
@@ -106,14 +98,7 @@ export function makeHtmlNode( tag: string ): HtmlTemplateNode {
 		type: 'html',
 		tag,
 		attrs: {},
-		children: []
-	};
-}
-
-export function makeTextNode( text: string ): TextTemplateNode {
-	return {
-		type: 'text',
-		text
+		text: 'Hello'
 	};
 }
 
@@ -149,9 +134,8 @@ export const useStore = defineStore( {
 	state: (): DynamicApp => {
 		return {
 			template: { type: 'root', children: [
-				{ type: 'html', tag: 'p', attrs: {}, children: [
-					{ type: 'text', text: 'Hello world!' }
-				] }
+				makeHtmlNode( 'p' ),
+				makeComponentNode( 'CdxButton' )
 			] }
 		};
 	},
@@ -160,6 +144,18 @@ export const useStore = defineStore( {
 			return ( indexes: number[] ): TemplateNode => {
 				return resolveIndexes( state.template, indexes );
 			};
+		}
+	},
+	actions: {
+		removeNode( index: number ) {
+			this.template.children.splice( index, 1 );
+		},
+		replaceNode( index: number, newNode: NonRootTemplateNode ) {
+			this.template.children.splice( index, 1, newNode );
+		},
+		moveNode( index: number, direction: 'up' | 'down' ) {
+			const [ node ] = this.template.children.splice( index, 1 );
+			this.template.children.splice( direction === 'up' ? index - 1 : index + 1, 0, node );
 		}
 	}
 } );

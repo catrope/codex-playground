@@ -1,5 +1,5 @@
 import { DefineComponent } from 'vue';
-import type { ComponentProp, NonRootTemplateNode } from './store';
+import type { ComponentProp } from './store';
 
 export interface ComponentDefinition {
 	// eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -7,10 +7,10 @@ export interface ComponentDefinition {
 	componentName: string,
 	importFrom: string,
 	props: Record<string, ComponentProp>,
-	defaultContent?: NonRootTemplateNode[]
+	defaultText?: string
 }
 
-import { CdxButton, CdxCheckbox, CdxMessage, CdxProgressBar, CdxRadio, CdxTab, CdxTabs, CdxTextInput } from '@wikimedia/codex';
+import { CdxButton, CdxCheckbox, CdxMessage, CdxProgressBar, CdxRadio, CdxTextInput } from '@wikimedia/codex';
 
 const availableComponents: ComponentDefinition[] = [
 	{
@@ -31,9 +31,7 @@ const availableComponents: ComponentDefinition[] = [
 				default: false
 			}
 		},
-		defaultContent: [
-			{ type: 'text', text: 'Click me' }
-		]
+		defaultText: 'Click me'
 	},
 	{
 		component: CdxCheckbox,
@@ -56,7 +54,8 @@ const availableComponents: ComponentDefinition[] = [
 				type: 'boolean',
 				default: false
 			}
-		}
+		},
+		defaultText: 'Label'
 	},
 	{
 		component: CdxMessage,
@@ -76,9 +75,7 @@ const availableComponents: ComponentDefinition[] = [
 				default: 'Close'
 			}
 		},
-		defaultContent: [
-			{ type: 'text', text: 'Message text' }
-		]
+		defaultText: 'Message text'
 	},
 	{
 		component: CdxProgressBar,
@@ -116,8 +113,10 @@ const availableComponents: ComponentDefinition[] = [
 				type: 'boolean',
 				default: false
 			}
-		}
+		},
+		defaultText: 'Label'
 	},
+	/*
 	// TODO Tab shouldn't be allowed outside of Tabs
 	{
 		component: CdxTab,
@@ -164,6 +163,7 @@ const availableComponents: ComponentDefinition[] = [
 			] }
 		]
 	},
+	*/
 	{
 		component: CdxTextInput,
 		componentName: 'CdxTextInput',

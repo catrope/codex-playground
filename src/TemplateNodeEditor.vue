@@ -1,56 +1,129 @@
-<!-- eslint-disable vue/no-mutating-props -->
 <template>
 	<div class="cdx-playground-editor">
-		<div v-if="node.type === 'component'">
-			Component:
-			<CdxSelect
-				:selected="node.component"
-				:menu-items="componentMenuItems"
-				@update:selected="switchComponent"
-			/>
+		<div class="cdx-playground-editor-main">
+			<template v-if="editMode">
+				<div>
+					Type:
+					<CdxSelect
+						v-model:selected="componentOrTag"
+						:menu-items="componentAndTagMenuItems"
+					/>
+				</div>
+				<div v-if="shouldHaveText">
+					Text:
+					<CdxTextInput
+						v-model="node.text"
+						class="cdx-playground-editor-textinput"
+					/>
+				</div>
+				<div v-if="node.type === 'component'">
+					Props:
+					<div
+						v-for="( propValue, propName ) in node.props"
+						:key="propName"
+						class="cdx-playground-editor-prop"
+					>
+						{{ propName }}:
+						<CdxTextInput
+							v-if="propValue.type === 'text'"
+							v-model="propValue.value"
+							class="cdx-playground-editor-textinput"
+						/>
+						<CdxToggleSwitch
+							v-else-if="propValue.type === 'boolean'"
+							v-model="propValue.value"
+						/>
+						<CdxSelect
+							v-else
+							v-model:selected="propValue.value"
+							:menu-items="propValue.type.map( ( x ) => ( { value: x } ) )"
+						/>
+					</div>
+				</div>
+			</template>
+			<template v-else>
+				<p class="cdx-playground-editor-description">
+					{{ description }}
+				</p>
+				<p class="cdx-playground-editor-text">
+					{{ node.text }}
+				</p>
+			</template>
 		</div>
-		<div v-if="node.type === 'html'">
-			HTML tag:
-			<CdxSelect v-model:selected="node.tag" :menu-items="tagMenuItems" />
+		<div class="cdx-playground-editor-actions">
+			<CdxButton
+				v-if="!editMode"
+				type="quiet"
+				:disabled="index === 0"
+				@click="moveUp"
+			>
+				<CdxIcon :icon="cdxIconUpTriangle" />
+			</CdxButton>
+			<CdxButton
+				v-if="!editMode"
+				type="quiet"
+				:disabled="isLast"
+				@click="moveDown"
+			>
+				<CdxIcon :icon="cdxIconDownTriangle" />
+			</CdxButton>
+			<CdxButton
+				v-if="!editMode"
+				type="quiet"
+				@click="editMode = true"
+			>
+				<CdxIcon :icon="cdxIconEdit" />
+			</CdxButton>
+			<CdxButton
+				v-else
+				type="quiet"
+				@click="editMode = false"
+			>
+				<CdxIcon :icon="cdxIconCheck" />
+			</CdxButton>
+			<CdxButton
+				v-if="!editMode"
+				action="destructive"
+				type="quiet"
+				@click="remove"
+			>
+				<CdxIcon :icon="cdxIconTrash" />
+			</CdxButton>
 		</div>
-		<div v-if="node.type === 'text'">
-			Text:
-			<CdxTextInput v-model="node.text" class="cdx-playground-editor-input" />
-		</div>
-		<div v-if="'children' in node">
+		<!-- <div v-if="'children' in node">
 			<div
 				v-for="( child, index ) in node.children"
 				:key="index"
 				class="cdx-playground-editor-children"
 			>
 				<TemplateNodeEditor :node="child" />
-				<CdxButton action="destructive" @click="removeChild( index )">
-					<CdxIcon :icon="cdxIconTrash" />
-				</CdxButton>
 			</div>
-			<CdxButton @click="addComponent">
-				<CdxIcon :icon="cdxIconAdd" />
-				Add component
-			</CdxButton>
-			<CdxButton @click="addText">
-				<CdxIcon :icon="cdxIconAdd" />
-				Add text
-			</CdxButton>
-			<CdxButton @click="addHtml">
-				<CdxIcon :icon="cdxIconAdd" />
-				Add HTML tag
-			</CdxButton>
-		</div>
+		</div> -->
 	</div>
 </template>
 
 <script lang="ts">
-/* eslint-disable vue/no-mutating-props */
-import { defineComponent, PropType } from 'vue';
-import { makeComponentNode, makeHtmlNode, makeTextNode, TemplateNode } from './store';
+import { computed, ref, defineComponent } from 'vue';
+import { getComponentDefinition, makeComponentNode, makeHtmlNode, NonRootTemplateNode, useStore } from './store';
 import availableComponents from './available-components';
-import { CdxButton, CdxIcon, CdxTextInput, CdxSelect, MenuItemData } from '@wikimedia/codex';
-import { cdxIconAdd, cdxIconTrash } from '@wikimedia/codex-icons';
+import { CdxButton, CdxIcon, CdxTextInput, CdxToggleSwitch, CdxSelect, MenuItemData } from '@wikimedia/codex';
+import { cdxIconUpTriangle, cdxIconDownTriangle, cdxIconEdit, cdxIconCheck, cdxIconTrash } from '@wikimedia/codex-icons';
+
+const tagMenuItems: MenuItemData[] = [
+	{ value: 'p', label: 'Paragraph' },
+	{ value: 'h1', label: 'Heading 1' },
+	{ value: 'h2', label: 'Heading 2' },
+	{ value: 'h3', label: 'Heading 3' },
+	{ value: 'h4', label: 'Heading 4' },
+	{ value: 'h5', label: 'Heading 5' },
+	{ value: 'h6', label: 'Heading 6' }
+];
+
+const componentMenuItems = availableComponents.map( ( component ) => ( {
+	value: component.componentName
+} ) );
+
+const componentAndTagMenuItems = [ ...tagMenuItems, ...componentMenuItems ];
 
 export default defineComponent( {
 	name: 'TemplateNodeEditor',
@@ -58,77 +131,82 @@ export default defineComponent( {
 		CdxButton,
 		CdxIcon,
 		CdxTextInput,
+		CdxToggleSwitch,
 		CdxSelect
 	},
 	props: {
-		node: {
-			type: Object as PropType<TemplateNode>,
+		index: {
+			type: Number,
 			required: true
 		}
 	},
 	setup( props ) {
-		const tagMenuItems: MenuItemData[] = [
-			{ value: 'p', label: 'Paragraph' },
-			{ value: 'h1', label: 'Heading 1' },
-			{ value: 'h2', label: 'Heading 2' },
-			{ value: 'h3', label: 'Heading 3' },
-			{ value: 'h4', label: 'Heading 4' },
-			{ value: 'h5', label: 'Heading 5' },
-			{ value: 'h6', label: 'Heading 6' }
-		];
+		const store = useStore();
+		const node = computed( () => store.template.children[ props.index ] );
+		const isLast = computed( () => props.index === store.template.children.length - 1 );
+		const shouldHaveText = computed( () =>
+			node.value.type === 'html' ||
+				!!getComponentDefinition( node.value.component )?.defaultText
+		);
+		const editMode = ref( false );
 
-		const componentMenuItems = availableComponents.map( ( component ) => ( {
-			value: component.componentName
-		} ) );
-
-		function switchComponent( newComponentName: string ) {
-			if ( props.node.type !== 'component' ) {
-				return;
+		const description = computed( () => {
+			if ( node.value.type === 'html' ) {
+				const tag = node.value.tag;
+				return tagMenuItems.find( ( item ) => item.value === tag )?.label || tag;
+			} else if ( node.value.type === 'component' ) {
+				return node.value.component;
 			}
-			const newComponentNode = makeComponentNode( newComponentName );
-			props.node.component = newComponentName;
-			props.node.props = newComponentNode.props;
-			props.node.children = newComponentNode.children;
+			return '';
+		} );
+
+		const componentOrTag = computed( {
+			get() {
+				return node.value.type === 'html' ? node.value.tag : node.value.component;
+			},
+			set( newVal: string ) {
+				let newNode: NonRootTemplateNode;
+				if ( getComponentDefinition( newVal ) ) {
+					newNode = makeComponentNode( newVal );
+				} else {
+					newNode = makeHtmlNode( newVal );
+				}
+				// Keep the old text, but not if the new component doesn't take text
+				// TODO we should have an explicit flag for if something takes text, not base it on
+				// whether there is default text
+				newNode.text = newNode.text ? ( node.value.text || newNode.text ) : '';
+				store.replaceNode( props.index, newNode );
+			}
+		} );
+
+		function remove() {
+			store.removeNode( props.index );
 		}
 
-		function addComponent() {
-			if ( !( 'children' in props.node ) ) {
-				return;
-			}
-			props.node.children.push( makeComponentNode( 'CdxButton' ) );
+		function moveUp() {
+			store.moveNode( props.index, 'up' );
 		}
 
-		function addHtml() {
-			if ( !( 'children' in props.node ) ) {
-				return;
-			}
-			props.node.children.push( makeHtmlNode( 'p' ) );
-		}
-
-		function addText() {
-			if ( !( 'children' in props.node ) ) {
-				return;
-			}
-			props.node.children.push( makeTextNode( 'Hello' ) );
-		}
-
-		function removeChild( index: number ) {
-			if ( !( 'children' in props.node ) ) {
-				return;
-			}
-			props.node.children.splice( index, 1 );
+		function moveDown() {
+			store.moveNode( props.index, 'down' );
 		}
 
 		return {
-			tagMenuItems,
-			componentMenuItems,
-			switchComponent,
-			addComponent,
-			addHtml,
-			addText,
-			removeChild,
-			cdxIconAdd,
-			cdxIconTrash
+			node,
+			isLast,
+			editMode,
+			description,
+			shouldHaveText,
+			componentOrTag,
+			componentAndTagMenuItems,
+			remove,
+			moveUp,
+			moveDown,
+			cdxIconTrash,
+			cdxIconUpTriangle,
+			cdxIconDownTriangle,
+			cdxIconEdit,
+			cdxIconCheck
 		};
 	}
 } );
@@ -136,16 +214,23 @@ export default defineComponent( {
 
 <style lang="less">
 .cdx-playground-editor {
-	margin-left: 1em;
+	position: relative;
+	border: 1px solid black;
+	padding: 0.5em;
 
-	&-input {
-		display: inline-block;
-		width: 200px;
+	&-text {
+		margin-left: 1em;
 	}
 
-	&-children {
-		display: flex;
-		align-items: flex-start;
+	&-actions {
+		position: absolute;
+		top: 0;
+		right: 0;
+	}
+
+	&-textinput {
+		display: inline-block;
+		width: 200px;
 	}
 
 }
