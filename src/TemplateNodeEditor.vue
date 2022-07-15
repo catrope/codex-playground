@@ -24,20 +24,43 @@
 						class="cdx-playground-editor-prop"
 					>
 						{{ propName }}:
-						<CdxTextInput
-							v-if="propValue.type === 'text'"
-							v-model="propValue.value"
-							class="cdx-playground-editor-textinput"
-						/>
-						<CdxToggleSwitch
-							v-else-if="propValue.type === 'boolean'"
-							v-model="propValue.value"
-						/>
-						<CdxSelect
-							v-else
-							v-model:selected="propValue.value"
-							:menu-items="propValue.type.map( ( x ) => ( { value: x } ) )"
-						/>
+						<template v-if="typeof propValue.value === 'object'">
+							<em>Variable:</em>
+							<CdxSelect
+								v-model:selected="propValue.value.variableName"
+								:menu-items="variableMenuItems"
+							/>
+							<CdxButton
+								v-if="propValue.type !== 'modelBinding'"
+								@click="unbindVariable( propName )"
+							>
+								Unbind variable
+							</CdxButton>
+						</template>
+						<template v-else>
+							<CdxTextInput
+								v-if="propValue.type === 'text'"
+								v-model="propValue.value"
+								class="cdx-playground-editor-textinput"
+							/>
+							<CdxToggleSwitch
+								v-else-if="propValue.type === 'boolean'"
+								v-model="propValue.value"
+							/>
+							<template
+								v-else-if="propValue.type === 'modelBinding'"
+							>
+								<!-- Not possible, but TypeScript doesn't know that -->
+							</template>
+							<CdxSelect
+								v-else
+								v-model:selected="propValue.value"
+								:menu-items="propValue.type.map( ( x ) => ( { value: x } ) )"
+							/>
+							<CdxButton v-if="variablesAvailable" @click="bindVariable( propName )">
+								Bind variable
+							</CdxButton>
+						</template>
 					</div>
 				</div>
 			</template>
@@ -149,6 +172,7 @@ export default defineComponent( {
 				!!getComponentDefinition( node.value.component )?.defaultText
 		);
 		const editMode = ref( false );
+		const variablesAvailable = computed( () => store.variables.length > 0 );
 
 		const description = computed( () => {
 			if ( node.value.type === 'html' ) {
@@ -167,7 +191,7 @@ export default defineComponent( {
 			set( newVal: string ) {
 				let newNode: NonRootTemplateNode;
 				if ( getComponentDefinition( newVal ) ) {
-					newNode = makeComponentNode( newVal );
+					newNode = makeComponentNode( newVal, store.variables );
 				} else {
 					newNode = makeHtmlNode( newVal );
 				}
@@ -178,6 +202,11 @@ export default defineComponent( {
 				store.replaceNode( props.index, newNode );
 			}
 		} );
+
+		const variableMenuItems = computed( () => store.variables.map( ( v ) => ( {
+			value: v.name,
+			label: `${v.name} (${v.value ? `"${v.value}"` : 'empty'})`
+		} ) ) );
 
 		function remove() {
 			store.removeNode( props.index );
@@ -191,17 +220,42 @@ export default defineComponent( {
 			store.moveNode( props.index, 'down' );
 		}
 
+		function bindVariable( propName: string ) {
+			if ( node.value.type !== 'component' ) {
+				return;
+			}
+			node.value.props[ propName ].value = {
+				type: 'binding',
+				variableName: store.variables[ 0 ].name
+			};
+		}
+
+		function unbindVariable( propName: string ) {
+			if ( node.value.type !== 'component' ) {
+				return;
+			}
+			const binding = node.value.props[ propName ].value;
+			if ( typeof binding !== 'object' ) {
+				return;
+			}
+			node.value.props[ propName ].value = store.variableValues[ binding.variableName ];
+		}
+
 		return {
 			node,
 			isLast,
 			editMode,
+			variablesAvailable,
 			description,
 			shouldHaveText,
 			componentOrTag,
 			componentAndTagMenuItems,
+			variableMenuItems,
 			remove,
 			moveUp,
 			moveDown,
+			bindVariable,
+			unbindVariable,
 			cdxIconTrash,
 			cdxIconUpTriangle,
 			cdxIconDownTriangle,

@@ -7,7 +7,11 @@ export default defineComponent( {
 	setup() {
 		const store = useStore();
 		// TODO set up variable state in a way that is somehow reactive to the stuff in app
-		return () => h( 'div', { class: 'cdx-playground-render' }, renderTemplate( store.template.children ) );
+		return () => h(
+			'div',
+			{ class: 'cdx-playground-render' },
+			renderTemplate( store.template.children, store.variables )
+		);
 	}
 } );
 </script>

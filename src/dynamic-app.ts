@@ -1,14 +1,28 @@
 import { h, VNodeArrayChildren, VNodeChild } from 'vue';
 import escapeHtml from 'escape-html';
 
-import { DynamicApp, TemplateNode, ComponentPropWithValue, getComponentDefinition, TemplateNodeWithChildren } from './store';
+import { DynamicApp, TemplateNode, ComponentPropWithValue, getComponentDefinition, TemplateNodeWithChildren, Variable } from './store';
 
 // TODO convert to non-array style
-export function renderTemplate( template: TemplateNode[] ): VNodeArrayChildren {
+export function renderTemplate(
+	template: TemplateNode[], variables: Variable[]
+): VNodeArrayChildren {
 	function renderProps( props: Record<string, ComponentPropWithValue> ): Record<string, unknown> {
 		const rendered: Record<string, unknown> = {};
 		for ( const [ propName, prop ] of Object.entries( props ) ) {
-			rendered[ propName ] = prop.value;
+			if ( typeof prop.value === 'object' ) {
+				const varName = prop.value.variableName;
+				const variable = variables.find( ( v ) => v.name === varName );
+				rendered[ propName ] = variable.value;
+
+				if ( prop.type === 'modelBinding' ) {
+					rendered[ `onUpdate:${propName}` ] = ( v: string ) => {
+						variable.value = v;
+					};
+				}
+			} else {
+				rendered[ propName ] = prop.value;
+			}
 		}
 		return rendered;
 	}
@@ -45,21 +59,34 @@ function getDefaultPropValues( componentName: string ): Record<string, string> {
 	}
 	const defaults = {};
 	for ( const propName in def.props ) {
-		if ( 'default' in def.props[ propName ] ) {
-			defaults[ propName ] = def.props[ propName ].default;
+		const prop = def.props[ propName ];
+		if ( 'default' in prop ) {
+			defaults[ propName ] = prop.default;
 		}
 	}
 	return defaults;
 }
 
 // TODO convert to non-array style
-export function makeTemplateSource( template: TemplateNode[], indent = 1 ): string {
+export function makeTemplateSource(
+	template: TemplateNode[], indent = 1
+): string {
 	function stringifyPropsOrAttrs(
 		props: Record<string, ComponentPropWithValue|string>,
 		defaults: Record<string, string> = {}
 	): string {
 		return Object.entries( props ).map( ( [ propName, prop ] ) => {
 			const propValue = typeof prop === 'string' ? prop : prop.value;
+			if ( typeof propValue === 'object' && typeof prop !== 'string' ) {
+				if ( prop.type === 'modelBinding' ) {
+					if ( propName === 'modelValue' ) {
+						return `v-model="${propValue.variableName}"`;
+					} else {
+						return `v-model:${propName}="${propValue.variableName}"`;
+					}
+				}
+				return `:${propName}="${propValue.variableName}"`;
+			}
 			if ( propValue === defaults[ propName ] ) {
 				return '';
 			}
@@ -124,9 +151,13 @@ export function makeScriptSource( app: DynamicApp, indent = 1 ): string {
 			`${tabs}import { ${Array.from( components.values() ).join( ', ' )} } from '${importSource}';`
 		).join( '\n' );
 
+	const dataVars = app.variables.map( ( variable ) => `${tabs}\t\t${variable.name}: ${JSON.stringify( variable.value )}` )
+		.join( '\n' );
+
 	return `${tabs}import { defineComponent } from 'vue';\n${importStatements}\n\n` +
 		`${tabs}export default defineComponent( {\n` +
 		`${tabs}\tcomponents: {\n${Array.from( foundComponents ).map( ( c ) => `${tabs}\t\t${c}` ).join( '\n' )}\n` +
+		( dataVars ? `${tabs}\t},\n${tabs}\tdata: {\n${dataVars}\n}` : '' ) +
 		`${tabs}\t}\n` +
 		`${tabs}} );`;
 }

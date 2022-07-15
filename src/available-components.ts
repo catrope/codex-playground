@@ -181,6 +181,9 @@ const availableComponents: ComponentDefinition[] = [
 			placeholder: {
 				type: 'text',
 				default: ''
+			},
+			modelValue: {
+				type: 'modelBinding'
 			}
 		}
 	}

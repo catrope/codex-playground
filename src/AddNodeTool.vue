@@ -55,7 +55,7 @@ export default defineComponent( {
 		function addNode( componentOrTag: string ) {
 			let newNode: NonRootTemplateNode;
 			if ( getComponentDefinition( componentOrTag ) ) {
-				newNode = makeComponentNode( componentOrTag );
+				newNode = makeComponentNode( componentOrTag, store.variables );
 			} else {
 				newNode = makeHtmlNode( componentOrTag );
 			}

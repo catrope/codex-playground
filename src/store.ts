@@ -1,6 +1,11 @@
 import { defineStore } from 'pinia';
 import availableComponents, { ComponentDefinition } from './available-components';
 
+export interface VariableBinding {
+	type: 'binding',
+	variableName: string
+}
+
 export interface BooleanProp {
 	type: 'boolean',
 	default?: boolean
@@ -16,16 +21,25 @@ export interface StringValueProp {
 	default?: string
 }
 
-export type ComponentProp = BooleanProp | TextProp | StringValueProp;
+export interface ModelBindingProp {
+	type: 'modelBinding'
+}
+
+export interface ModelBindingPropWithVariable extends ModelBindingProp {
+	value: VariableBinding
+}
+
+export type ComponentProp = BooleanProp | TextProp | StringValueProp | ModelBindingProp;
 
 type DefaultToValue<T extends { default?: string|boolean }> = Omit<T, 'default'> & {
-	value: NonNullable<T['default']>
+	value: NonNullable<T['default']> | VariableBinding
 }
 
 export type ComponentPropWithValue =
 	DefaultToValue<BooleanProp> |
 	DefaultToValue<TextProp> |
-	DefaultToValue<StringValueProp>;
+	DefaultToValue<StringValueProp> |
+	ModelBindingPropWithVariable;
 
 export interface RootTemplateNode {
 	type: 'root',
@@ -43,7 +57,7 @@ export interface ComponentTemplateNode {
 export interface HtmlTemplateNode {
 	type: 'html',
 	tag: string,
-	attrs: Record<string, string>,
+	attrs: Record<string, DefaultToValue<TextProp>>,
 	text: string
 }
 
@@ -55,8 +69,14 @@ export type TemplateNode = RootTemplateNode | NonRootTemplateNode;
 
 export type TemplateNodeWithChildren = RootTemplateNode;
 
+export interface Variable {
+	name: string,
+	value: string
+}
+
 export interface DynamicApp {
-	template: RootTemplateNode
+	template: RootTemplateNode,
+	variables: Variable[]
 	// TODO variables, data, computed, etc
 }
 
@@ -64,7 +84,7 @@ export function getComponentDefinition( componentName: string ): ComponentDefini
 	return availableComponents.find( ( component ) => component.componentName === componentName );
 }
 
-export function makeComponentNode( componentName: string ): ComponentTemplateNode {
+export function makeComponentNode( componentName: string, variables: Variable[] ): ComponentTemplateNode {
 	const componentDefinition = getComponentDefinition( componentName );
 	const props: Record<string, ComponentPropWithValue> = {};
 	for ( const [ propName, prop ] of Object.entries( componentDefinition.props ) ) {
@@ -77,6 +97,14 @@ export function makeComponentNode( componentName: string ): ComponentTemplateNod
 			props[ propName ] = {
 				type: 'text',
 				value: prop.default || ''
+			};
+		} else if ( prop.type === 'modelBinding' ) {
+			if ( variables.length === 0 ) {
+				variables.push( { name: 'var1', value: '' } );
+			}
+			props[ propName ] = {
+				type: 'modelBinding',
+				value: { type: 'binding', variableName: variables[ 0 ].name }
 			};
 		} else if ( Array.isArray( prop.type ) ) {
 			props[ propName ] = {
@@ -135,8 +163,11 @@ export const useStore = defineStore( {
 		return {
 			template: { type: 'root', children: [
 				makeHtmlNode( 'p' ),
-				makeComponentNode( 'CdxButton' )
-			] }
+				makeComponentNode( 'CdxButton', [] )
+			] },
+			variables: [
+				{ name: 'foo', value: 'bar' }
+			]
 		};
 	},
 	getters: {
@@ -144,6 +175,13 @@ export const useStore = defineStore( {
 			return ( indexes: number[] ): TemplateNode => {
 				return resolveIndexes( state.template, indexes );
 			};
+		},
+		variableValues: ( state ) => {
+			const result: Record<string, string> = {};
+			for ( const variable of state.variables ) {
+				result[ variable.name ] = variable.value;
+			}
+			return result;
 		}
 	},
 	actions: {
@@ -163,7 +201,7 @@ export const useStore = defineStore( {
 		updateStoreFromHash() {
 			try {
 				const data = JSON.parse( decodeURIComponent( atob( location.hash.slice( 1 ) ) ) ) as DynamicApp;
-				this.$patch( data );
+				this.$state = data;
 			} catch ( _ignored ) {
 			}
 		}

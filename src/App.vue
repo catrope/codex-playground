@@ -10,6 +10,7 @@
 				<TemplateNodeEditor :index="index" />
 				<AddNodeTool :index="index" />
 			</template>
+			<VariablesEditor />
 		</div>
 		<div class="cdx-playground-column2">
 			<RenderDynamicApp />
@@ -24,6 +25,7 @@ import AddNodeTool from './AddNodeTool.vue';
 import RenderDynamicApp from './RenderDynamicApp.vue';
 import SourceCode from './SourceCode.vue';
 import TemplateNodeEditor from './TemplateNodeEditor.vue';
+import VariablesEditor from './VariablesEditor.vue';
 
 import '@wikimedia/codex/dist/codex.style.css';
 import { useStore } from './store';
@@ -33,7 +35,8 @@ export default defineComponent( {
 		AddNodeTool,
 		RenderDynamicApp,
 		SourceCode,
-		TemplateNodeEditor
+		TemplateNodeEditor,
+		VariablesEditor
 	},
 	setup() {
 		const store = useStore();
